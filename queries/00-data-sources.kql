@@ -1,0 +1,5 @@
+// Data sources ingested into the workspace (billable volume per table)
+Usage
+| where TimeGenerated > ago(730d)
+| summarize MB = sum(Quantity), First = min(TimeGenerated), Last = max(TimeGenerated) by DataType
+| sort by MB desc
