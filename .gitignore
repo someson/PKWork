@@ -1,0 +1,11 @@
+# Screenshots are kept outside the repository
+*.png
+*.jpg
+*.jpeg
+*.gif
+screenshots/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
