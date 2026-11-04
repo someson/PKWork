@@ -1,0 +1,11 @@
+// Okta events with source IP and geolocation
+OktaV2_CL
+| where TimeGenerated > datetime(1970-01-01)
+| project EventStartTime = column_ifexists("EventStartTime", datetime(null)),
+          ActorUsername, EventOriginalType, EventMessage,
+          TargetUsername = column_ifexists("TargetUsername", ""),
+          SrcIpAddr = column_ifexists("SrcIpAddr", ""),
+          SrcGeoCountry = column_ifexists("SrcGeoCountry", ""),
+          SrcGeoCity = column_ifexists("SrcGeoCity", ""),
+          HttpUserAgent = column_ifexists("HttpUserAgent", "")
+| sort by EventStartTime asc

@@ -1,0 +1,6 @@
+// Latest state of every incident in the workspace
+SecurityIncident
+| where TimeGenerated > datetime(1970-01-01)
+| summarize arg_max(TimeGenerated, *) by IncidentNumber
+| project IncidentNumber, CreatedTime, Title, Severity, Status, AlertCount = array_length(AlertIds)
+| sort by CreatedTime asc

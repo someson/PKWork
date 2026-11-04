@@ -1,5 +1,12 @@
-// Data sources ingested into the workspace (billable volume per table)
-Usage
-| where TimeGenerated > ago(730d)
-| summarize MB = sum(Quantity), First = min(TimeGenerated), Last = max(TimeGenerated) by DataType
-| sort by MB desc
+// Ingested volume per table compared with the rows currently available
+let ingested = Usage
+    | where TimeGenerated > datetime(1970-01-01)
+    | summarize IngestedMB = round(sum(Quantity), 2), LastIngested = max(TimeGenerated) by DataType;
+let present = search *
+    | where TimeGenerated > datetime(1970-01-01)
+    | extend DataType = $table
+    | summarize RowsNow = count() by DataType;
+ingested
+| join kind=leftouter present on DataType
+| project DataType, IngestedMB, LastIngested, RowsNow = coalesce(RowsNow, 0)
+| sort by IngestedMB desc

@@ -1,0 +1,4 @@
+// AWS CloudTrail events, one JSON column per row
+AWSCloudTrail
+| where TimeGenerated > datetime(1970-01-01)
+| project Row = pack_all(true)

@@ -1,0 +1,13 @@
+// Alerts behind the lab incidents 324-336
+let inc = SecurityIncident
+    | where TimeGenerated > datetime(1970-01-01)
+    | where IncidentNumber between (324 .. 336)
+    | summarize arg_max(TimeGenerated, *) by IncidentNumber
+    | mv-expand AlertId = AlertIds to typeof(string)
+    | project IncidentNumber, AlertId;
+SecurityAlert
+| where TimeGenerated > datetime(1970-01-01)
+| summarize arg_max(TimeGenerated, *) by SystemAlertId
+| join kind=inner inc on $left.SystemAlertId == $right.AlertId
+| project IncidentNumber, StartTime, AlertName, ProductName, AlertSeverity, CompromisedEntity, Tactics, Techniques
+| sort by StartTime asc

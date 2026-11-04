@@ -23,7 +23,7 @@ The question is no longer whether there was an attack, but:
 ## Environment
 
 - Portal: [security.microsoft.com](https://security.microsoft.com/)
-- Sentinel workspace: `sentinellab1786260698`
+- Sentinel workspace: `sentinel-lab-main-ws`
 - Data: pre-ingested endpoint, identity, network, email and cloud telemetry
 
 ## Repository layout

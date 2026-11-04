@@ -1,0 +1,12 @@
+// Entities referenced by the lab alerts
+SecurityAlert
+| where TimeGenerated > datetime(1970-01-01)
+| where AlertName has "Lab Stage" or AlertName has_any ("CloudTrail", "AWS", "Event log cleared")
+| summarize arg_max(TimeGenerated, *) by SystemAlertId
+| mv-expand E = todynamic(Entities)
+| extend EntityType = tostring(E.Type),
+         Value = coalesce(tostring(E.HostName), tostring(E.Address), tostring(E.Name),
+                          tostring(E.Url), tostring(E.Value), tostring(E.AadUserId))
+| where isnotempty(Value)
+| summarize Alerts = make_set(AlertName) by EntityType, Value
+| sort by EntityType asc

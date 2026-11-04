@@ -1,0 +1,4 @@
+// MailGuard mail logs, one JSON column per row (export shows max 20 columns)
+union isfuzzy=true withsource=SrcTbl_ SEG_MailGuard_CL, MailGuard365_Threats_CL
+| where TimeGenerated > datetime(1970-01-01)
+| project SrcTbl_, Row = pack_all(true)

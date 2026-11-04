@@ -1,0 +1,8 @@
+// CrowdStrike detections with the original behavior time
+CrowdStrikeDetections
+| where TimeGenerated > datetime(1970-01-01)
+| extend B = todynamic(Behaviors), H = todynamic(HostInfo)
+| project EventTime = todatetime(B.timestamp), Host = tostring(H.hostname), LocalIP = tostring(H.local_ip),
+          User = tostring(B.user_name), Tactic = tostring(B.tactic), Technique = tostring(B.technique_id),
+          Behavior = tostring(B.display_name), CommandLine = tostring(B.cmdline), SHA256 = tostring(B.sha256), Status
+| sort by EventTime asc

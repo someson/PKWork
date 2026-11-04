@@ -1,0 +1,8 @@
+// Palo Alto flows to external IPs and to the scanned internal host
+CommonSecurityLog
+| where TimeGenerated > datetime(1970-01-01)
+| where not(DestinationIP startswith "10.") or DestinationIP == "10.0.1.200"
+| summarize Events = count(), SentBytes = sum(SentBytes), ReceivedBytes = sum(ReceivedBytes),
+            Ports = make_set(DestinationPort, 50), Start = min(ReceiptTime), End = max(ReceiptTime)
+    by SourceIP, DestinationIP, DeviceAction, Activity
+| sort by SentBytes desc
