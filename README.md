@@ -32,4 +32,5 @@ The question is no longer whether there was an attack, but:
 |---|---|
 | `docs/INVESTIGATION_LOG.md` | Working notebook: findings, hypotheses, session status |
 | `docs/WALKTHROUGH.md` | Step-by-step record of the queries run and their results |
+| `docs/ANALYSIS.md` | Consolidated timeline, scope, MITRE ATT&CK mapping and confidence |
 | `queries/` | KQL queries used in the investigation |
