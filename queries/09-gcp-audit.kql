@@ -1,0 +1,6 @@
+// GCP audit logs with the original event time
+GCPAuditLogs
+| where TimeGenerated > datetime(1970-01-01)
+| project Timestamp, PrincipalEmail, CallerIp = tostring(RequestMetadata.callerIp),
+          ServiceName, MethodName, GCPResourceName, Request, Status
+| sort by Timestamp asc

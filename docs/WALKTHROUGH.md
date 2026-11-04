@@ -153,9 +153,10 @@ CrowdStrikeDetections
 | where TimeGenerated > datetime(1970-01-01)
 ```
 
-54 detections. The original event time is in `Behaviors.timestamp`
-(ISO 8601): 2026-02-06 14:46 – 18:42 UTC. `FirstBehavior` is displayed as
-6/2/2026 because the source value `06/02/2026` was parsed as month/day.
+54 detections. The original event time is in `Behaviors.timestamp`:
+14:46 – 18:42 UTC. The date is ambiguous: `Behaviors.timestamp` gives
+2026-02-06, while `FirstBehavior` and the CrowdStrikeAlerts table give
+2026-06-02 (source value `06/02/2026`). It is written below as 2026-02-06/06-02.
 Parsed view: `queries/04-crowdstrike-detections.kql`.
 
 Key detections (first occurrence per host and behavior):
@@ -316,3 +317,179 @@ Other relevant events:
 
 jane.smith (198.51.100.22), bob.jones (203.0.113.50) and deploy-svc
 (10.0.5.100) show routine read-only and deployment activity.
+
+## Session 2 – GCP audit logs
+
+```kql
+GCPAuditLogs
+| where TimeGenerated > datetime(1970-01-01)
+| project Row = pack_all(true)
+```
+
+25 events in project `pocaas-prod-01`. The original event time is in
+`Timestamp`. Parsed view: `queries/09-gcp-audit.kql`.
+
+| Time (UTC) | Principal | Caller IP | Method | Details |
+|---|---|---|---|---|
+| 2026-10-02 12:00:05 | mirage (as rogue-actor@pocaas-prod-01.iam.gserviceaccount.com) | 198.51.100.42 | CreateServiceAccount | `backdoor-svc-gcp` ("Backdoor Service Account") |
+| 12:01:20 | mirage | 198.51.100.42 | CreateServiceAccountKey | `backdoor-svc-gcp`, key `abc123def456` (RSA 2048) |
+| 12:02:45 | mirage | 198.51.100.42 | SetIamPolicy | `roles/owner` → `backdoor-svc-gcp` |
+| 12:03:30 | mirage | 198.51.100.42 | compute.firewalls.insert | `allow-all-ingress`: all protocols from `0.0.0.0/0`, priority 100 |
+| 12:04:15 | mirage | 198.51.100.42 | compute.instances.insert | `crypto-miner-01`, `a2-highgpu-8g`, us-central1-a |
+| 12:04:45 | mirage | 198.51.100.42 | compute.instances.insert | `crypto-miner-02`, `a2-highgpu-8g` |
+| 12:05:30 | mirage | 198.51.100.42 | storage.objects.list | `pocaas-confidential-data` (42 objects) |
+| 12:06:10 | mirage | 198.51.100.42 | storage.objects.get | `financial-report-2026.xlsx` |
+| 12:06:35 | mirage | 198.51.100.42 | storage.objects.get | `employee-pii-export.csv` |
+| 12:07:50 | mirage | 198.51.100.42 | DeleteSink | `export-all-logs` |
+| 12:08:30 | mirage | 198.51.100.42 | UpdateSink | `_Default` → `disabled: true` |
+| 12:09:00 | eve.hacker@external-domain.com | 91.219.236.100 | CreateServiceAccount `evil-svc` | Permission denied |
+| 12:09:15 | eve.hacker@external-domain.com | 91.219.236.100 | SetIamPolicy | Permission denied |
+| 12:10:00 | backdoor-svc-gcp | 198.51.100.42 | compute.instances.insert | `crypto-miner-03`, `a2-highgpu-8g` |
+| 12:11:45 | mirage | 198.51.100.42 | storage.objects.get | `api-keys-production.json` |
+| 12:12:00 | mirage | 198.51.100.42 | SetIamPolicy | `roles/iam.serviceAccountTokenCreator` on `deploy-pipeline` → mirage |
+
+jane.smith (198.51.100.22), bob.jones (203.0.113.50) and deploy-pipeline
+(10.0.5.100) show routine activity.
+
+## Session 2 – Azure activity (custom tables)
+
+```kql
+union isfuzzy=true withsource=SrcTbl_ AzureActivity_CL, azureActivity_adele_CL
+| where TimeGenerated > datetime(1970-01-01)
+| project SrcTbl_, Row = pack_all(true)
+```
+
+348 rows. Neither table references PKWork users, hosts or the attacker IPs.
+
+| Table | Rows | Original time (UTC) | Tenant | Content |
+|---|---|---|---|---|
+| AzureActivity_CL | 325 | 2021-04-26 16:42 – 20:27 | buildseccxpninja.onmicrosoft.com | Routine administration by 7 users and 5 service principals (Sentinel incident updates, deployments, network changes, SAS tokens) |
+| azureActivity_adele_CL | 23 | 2021-04-28 14:31 – 14:44 | M365x816222.onmicrosoft.com | AdeleV from 37.142.150.162 deletes a web app (`Okta-new`), a VM (`Linux01`), two key vaults, Logic Apps and API connections, and three resource groups; creates a Sentinel alert rule |
+
+Anomaly in AzureActivity_CL: one "Update Incidents" event of
+yanivsh@buildseccxpninja.onmicrosoft.com has `CallerIpAddress` 175.45.176.99,
+while `HTTPRequest.clientIpAddress` is 52.232.188.154 (the usual IP of this user).
+
+## Session 2 – Office 365 activity and inbox rules
+
+```kql
+union isfuzzy=true withsource=SrcTbl_ OfficeActivity_CL, office_activity_inbox_rule_CL
+| where TimeGenerated > datetime(1970-01-01)
+| project SrcTbl_, Row = pack_all(true)
+```
+
+268 rows from tenants M365x816222 and contoso, 2021-04-26 – 2021-04-28.
+No PKWork users or attacker IPs.
+
+Activity from 175.45.176.99 (173 events, M365x816222, 2021-04-28):
+
+| User | Operations |
+|---|---|
+| adelev | FileAccessed (39), FilePreviewed (26), PageViewed (18), FolderModified (12), ListUpdated (6), AddedToGroup / GroupAdded (3 each), SharingSet (3), PermissionLevelAdded (3), AnonymousLinkCreated, FileDeleted, Send, MoveToDeletedItems, New-InboxRule |
+| johns | ListViewed (8), FileAccessed (6), PageViewed (6), SharingInheritanceBroken (3), PermissionLevelAdded (3), CompanyLinkCreated, SharingSet, GroupAdded |
+| admin | PageViewed (4) |
+| SHAREPOINT\system | FileVersionsAllDeleted (2) |
+
+Inbox rules:
+
+| Time (UTC) | User | Client IP | Rule |
+|---|---|---|---|
+| 2021-04-28 14:41:58 | AdeleV@M365x816222 | 175.45.176.99 | `junk`: subject contains "legal" → pin, stop processing |
+| 2021-04-26 07:17:10 | AdeleV@contoso | 2a01:110:8068:7:9bf8:aa87:e00a:5f1f | `rule2`: subject contains "do not open" → Junk Email |
+| 2021-04-26 06:37:32 | AdeleV@contoso | 2a01:110:8068:7:9bf8:aa87:e00a:5f1f | `my_rule1`: body contains "covid-19" → delete |
+
+## Session 2 – Windows Security events
+
+```kql
+SecurityEvent
+| where TimeGenerated > datetime(1970-01-01)
+| summarize Count = count(), Accounts = make_set(Account, 10) by Computer, EventID, Activity
+| sort by Computer asc, Count desc
+```
+
+23,864 events from 13 computers. Only one event belongs to PKWork:
+
+| Computer | EventID | Activity | Count | Account |
+|---|---|---|---|---|
+| win11a.pkwork.onmicrosoft.com | 1102 | The audit log was cleared. | 1 | PKWORK\mirage |
+
+All other computers belong to the Contoso demo environment (AdminPc, AdminPc2,
+ClientPc, ContosoDc, OnPremSQL, SHIR-Hive, SHIR-SAP, SOC-FW-RDP, TrustedVMDemo,
+VictimPC2, VictimPc). Most notable there: failed logons (4625) on SOC-FW-RDP
+(11,970), SHIR-Hive (5,704) and SHIR-SAP (489), i.e. password guessing against
+internet-facing hosts.
+
+```kql
+SecurityEvent
+| where TimeGenerated > datetime(1970-01-01)
+| where Computer startswith "win11a"
+| project Row = pack_all(true)
+```
+
+One event: EventID 1102, `PKWORK\mirage`, source `Microsoft-Windows-Eventlog`,
+channel Security. No original event time beyond ingestion
+(2026-10-28 07:16:28 UTC).
+
+## Session 2 – Remaining identity and detection tables
+
+```kql
+union isfuzzy=true withsource=SrcTbl_ sign_in_adelete_CL, disable_accounts_CL,
+    AuditLogsHunting_CL, model_evasion_detection_CL
+| where TimeGenerated > datetime(1970-01-01)
+| project SrcTbl_, Row = pack_all(true)
+```
+
+69 rows, all from 2021 demo tenants. No PKWork entities.
+
+| Table | Rows | Content |
+|---|---|---|
+| sign_in_adelete_CL | 56 | adelev@m365x816222 sign-ins from 175.45.176.99 (location IL), 2021-04-28 14:08–15:19, Office 365, Teams, SharePoint, Azure Portal |
+| AuditLogsHunting_CL | 5 | Application secrets added (buildseccxpninja): victim@ from 45.153.160.2 on `purview-spn-user099`; VadimJ on EntApp01–04 |
+| disable_accounts_CL | 4 | johns@contoso sign-in attempts to Azure Portal from KP, 2021-04-19, error 50057 (account disabled) |
+| model_evasion_detection_CL | 4 | `fraud_detection` model, sarah@contoso from 79.23.11.201, evasion score 0.9921, April 2021 |
+
+## Session 2 – CrowdStrike alerts, hosts and vulnerabilities
+
+```kql
+union isfuzzy=true withsource=SrcTbl_ CrowdStrikeAlerts, CrowdStrikeHosts, CrowdStrikeVulnerabilities
+| where TimeGenerated > datetime(1970-01-01)
+| project SrcTbl_, Row = pack_all(true)
+```
+
+CrowdStrikeAlerts (53) mirror the detections: `CreatedTimestamp`
+2026-06-02 14:46:27 – 18:42:00 UTC. Malicious PowerShell Execution (12),
+Credential Dumping via LSASS (10), Sensitive File Staging (9), C2 Beacon
+Detected (6), Security Tool Tamper Attempt (6), Ransomware Behavior (5),
+Lateral Movement via SMB (3), User Execution: Malicious File (1),
+NetworkConnect C2 (1).
+
+CrowdStrikeHosts (8), last seen `06/02/2026 18:43:12`:
+
+| Host | IP | User | Tags | OS |
+|---|---|---|---|---|
+| win11a | 10.0.1.50 | mirage | finance; managed; workstation | Windows 11 |
+| win11b | 10.0.1.51 | ceo | workstation; managed | Windows 11 |
+| win11c | 10.0.1.52 | spatel | workstation; managed | Windows 11 |
+| it-ws01 | 10.0.1.53 | jliu | workstation; managed | Windows 11 |
+| win11d | 10.0.1.54 | psharma | workstation; managed | Windows 11 |
+| dev-ws01 | 10.0.2.10 | aturner | workstation; managed | Windows 11 |
+| srv-dc01 | 10.0.0.10 | jliu | server; managed | Windows Server 2022 |
+| srv-file01 | 10.0.0.20 | jliu | server; managed | Windows Server 2022 |
+
+CrowdStrikeVulnerabilities (10):
+
+| Host | CVE | Description | Status |
+|---|---|---|---|
+| win11a | CVE-2023-20198 | Cisco IOS XE Web UI Privilege Escalation | open |
+| win11a | CVE-2023-44487 | HTTP/2 Rapid Reset Attack | exception |
+| win11b | CVE-2024-21412 | Internet Shortcut Files Security Feature Bypass | patched |
+| win11b | CVE-2023-44487 | HTTP/2 Rapid Reset Attack | patched |
+| win11c | CVE-2023-20198 | Cisco IOS XE Web UI Privilege Escalation | open |
+| it-ws01 | CVE-2024-21412 | Internet Shortcut Files Security Feature Bypass | open |
+| win11d | CVE-2024-3400 | PAN-OS Command Injection | patched |
+| dev-ws01 | CVE-2023-44487 | HTTP/2 Rapid Reset Attack | open |
+| srv-dc01 | CVE-2023-20198 | Cisco IOS XE Web UI Privilege Escalation | open |
+| srv-file01 | CVE-2023-36884 | Office and Windows HTML RCE | exception |
+
+Several entries (Cisco IOS XE, PAN-OS on Windows hosts) do not match the host
+platform, so the vulnerability data is of low reliability.

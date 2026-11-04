@@ -1,0 +1,4 @@
+// Azure activity custom tables, one JSON column per row
+union isfuzzy=true withsource=SrcTbl_ AzureActivity_CL, azureActivity_adele_CL
+| where TimeGenerated > datetime(1970-01-01)
+| project SrcTbl_, Row = pack_all(true)

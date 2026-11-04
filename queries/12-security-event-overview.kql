@@ -1,0 +1,5 @@
+// Windows Security events per computer and event ID
+SecurityEvent
+| where TimeGenerated > datetime(1970-01-01)
+| summarize Count = count(), Accounts = make_set(Account, 10) by Computer, EventID, Activity
+| sort by Computer asc, Count desc

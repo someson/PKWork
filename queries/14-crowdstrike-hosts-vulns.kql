@@ -1,0 +1,4 @@
+// CrowdStrike alerts, host inventory and vulnerabilities, one JSON column per row
+union isfuzzy=true withsource=SrcTbl_ CrowdStrikeAlerts, CrowdStrikeHosts, CrowdStrikeVulnerabilities
+| where TimeGenerated > datetime(1970-01-01)
+| project SrcTbl_, Row = pack_all(true)
